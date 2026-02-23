@@ -1,0 +1,80 @@
+\documentclass[11pt]{article}
+
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath, amssymb}
+\usepackage{graphicx}
+\usepackage{enumitem}
+\usepackage{fancyhdr}
+\usepackage{hyperref}
+\usepackage[outputdir=build]{minted}
+
+\pagestyle{fancy}
+\fancyhf{}
+\lhead{ENPM701 --- Homework 2}
+\rhead{Marcus Hurt}
+\cfoot{\thepage}
+
+\title{Homework 2}
+\author{Marcus Hurt \\ \href{mailto:mhurt@umd.edu}{mhurt@umd.edu}}
+\date{ENPM701: Autonomous Robotics}
+
+\begin{document}
+
+\begin{titlepage}
+    \centering
+    \vspace*{2in}
+    {\LARGE\bfseries Homework 2\par}
+    \vspace{0.5in}
+    {\Large ENPM701: Autonomous Robotics\par}
+    \vspace{1in}
+    {\large Marcus Hurt\par}
+    \href{mailto:mhurt@umd.edu}{mhurt@umd.edu}
+    \vfill
+    {\large University of Maryland\par}
+    {\large \today\par}
+\end{titlepage}
+
+\section*{Question \#1 (5 points)}
+
+As discussed in lecture, here is the Yarbo autonomous
+vehicle platform:
+
+Yarbo Autonomous
+
+Based on the information presented on the Yarbo website, as well as their online brochure, discuss in 1-2 paragraphs what Perception architectures the Yarbo platform uses:
+
+\url{https://www.yarbo.com/brochure}
+
+\subsection*{Answer}
+
+The Yarbo platform uses a combination of several sensor architectures, potentially varying depending on the vehicle configuration. The lawn mower pro lists binocular cameras, ultrasonic sensors, and bumpers for obstacle avoidance, RTK, vision, IMU, and ODOM for positioning and navigation, and specifies navigation under trees does not use RTK. Other modules modify the list of sensors. The trimmer does not specify navigation or obstacle avoidance architectures in the brochure. The snow blower only lists obstacle detection in the specifications, but the graphic indicates RTK usage. For simplicity, we will discuss the unit as a whole with all architectures available to it.
+
+The Yarbo platform uses RTK for precise positioning. This system requires the user to set up a base station that the vehicle uses to correct its GPS readings for more accurate localization. The brochure also indicates the use of computer vision. This would allow YARBO to perform SLAM and obstacle avoidance using the binocular cameras. Ultrasonic sensors could be used with sensor fusion to increase the accuracy of obstacle detection and provide more data to the SLAM system. The bumper system is a last line safety system to detect collisions and immediately stop the vehicle. This system seems to require human intervention if triggered (according to user reports on YouTube).
+
+\section*{Question \#2 (10 points)}
+
+This week in lecture we worked through initial setup and configuration of our Raspberry Pi’s.
+
+At home this week, please work through and confirm the following:
+
+\begin{enumerate}
+    \item All packages (numpy, cv2, etc.) import into Python and sanitycheck.py runs with no errors.
+    \item You can wirelessly connect to the Pi, and Putty/Terminal and VNC function properly.
+    \item Files can be transferred between your Raspberry Pi and laptop. Note: although several
+    approaches to transferring files are listed in the lecture notes, FTP is the preferred method.
+    \item Raspistill and raspvid function (or equivalent) correctly, and you can view the images and videos on your laptop.
+\end{enumerate}
+
+Finally, using the Raspberry Pi, Pi camera, and Python code provided in the lecture notes, record a minimum 30 second video clip by modifying \& exercising the codes provided in the following pages of this assignment. Creative videos encouraged!
+
+Upload the video to your YouTube account (can be accomplished by FTP’ing the file to your laptop oruploading to YouTube directly from your RPi) then upload a single page.pdf to Gradescope providing the link to the video. Ensure the video is either public or unlisted (not private).
+
+As a reminder, always properly shutdown your Raspberry Pi prior to removing power by typing sudo shutdown 0 (“zero”) into a Terminal Window and hitting enter
+
+\subsection*{Answer}
+
+All packages imported successfully, and sanitycheck.py ran without errors. I was able to connect to the Pi wirelessly using both Putty and VNC, and file transfer between the Pi and laptop worked using FTP. Equivalents to raspistill and raspvid (libcamera-still and libcamera-vid) functioned correctly, allowing me to view images and videos on my laptop. I recorded a 30-second video using the Pi camera and Python code provided in the lecture notes, and uploaded it to YouTube. The video is available at the following link:
+
+\url{https://youtu.be/EkYfJei1pXY}
+
+\end{document}
