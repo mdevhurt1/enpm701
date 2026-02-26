@@ -6,7 +6,7 @@
 \usepackage{enumitem}
 \usepackage{fancyhdr}
 \usepackage{hyperref}
-\usepackage[outputdir=build]{minted}
+\usepackage{minted}
 
 \pagestyle{fancy}
 \fancyhf{}
@@ -34,6 +34,23 @@
     {\large \today\par}
 \end{titlepage}
 
-\section*{Question \#1 (5 points)}
+\section*{Question \#1 (20 points)}
+
+\subsection*{Youtube Video: \textit{Green Light Traffic Light Detection with OpenCV}}
+
+See the video at the following link for a demonstration of the green light traffic light detection algorithm implemented using OpenCV.
+
+\url{https://youtu.be/f6-Q6IIdYUU?si=hqDvjV43qGvrBL58}
+
+\subsection*{Data Visualization}
+
+The Pi did a respectable job of detcting the green light. There were a few outlier frames, one of which took 35 ms, but the majority of the frames were processed in under 20 ms, with an average processing time of around 15 ms. This indicates that the algorithm is efficient enough for real-time applications, as it can process frames at a rate of approximately 50 frames per second reliably. Adding computational load to the Pi, such as running additional processes or using a more complex algorithm, may increase the processing time and could potentially lead to missed detections if the frame rate drops too low. However, based on the current performance, the algorithm is well-suited for soft real-time detection in an autonomous vehicle context. It should be noted that since the Pi is running a general purpose OS instead of a RTOS, we cannot guarantee hard real-time performance, but the observed processing times suggest that it can handle the task effectively under typical conditions.
+
+\begin{figure}[h]
+    \centering
+    \includegraphics[width=0.8\textwidth]{frame_times.png}
+    \caption{Data Visualization of Green Light Detection}
+    \label{fig:data_visualization}
+\end{figure}
 
 \end{document}
