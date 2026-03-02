@@ -77,16 +77,21 @@ average = sum(ranges) / len(ranges)
 # Load the image into OpenCV
 image = cv2.imread('./lecture4inclass.jpg')
 
+image = imutils.rotate(image, -180)
+
 # Define the text properties
 position = (100, 250)
 font = cv2.FONT_HERSHEY_SIMPLEX
-font_scale = 1.2
+font_scale = 3
 text = f"{average:.2f} cm"
-color = (255, 255, 255) # BGR format
+color = (0, 0, 255) # BGR format
 thickness = 5
+
+# Save the image
+cv2.imwrite("Original.jpg", image)
 
 # Put the text on the image
 cv2.putText(image, text, position, font, font_scale, color, thickness)
 
 # Save the image
-cv2.imwrite("lecture4inclass.jpg", image)
+cv2.imwrite("DistanceMeasurement.jpg", image)
