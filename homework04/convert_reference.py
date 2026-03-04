@@ -21,7 +21,7 @@ black_canvas[:] = 0
 # lower_green = (25, 50, 50)
 # upper_green = (95, 255, 255)
 
-lower_green = (70, 90, 150)
+lower_green = (60, 90, 150)
 upper_green = (80, 255, 255)
 
 # Set pixels within the green range to white on the black canvas

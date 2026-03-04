@@ -1,14 +1,11 @@
-# Arrow direction detection using contour analysis and convexity defects.
-# This replaces the goodFeaturesToTrack approach, which produced unreliable
-# corner positions on blurred binary masks (only 3 of 7 corners detected).
+# Corner detection on blurred_mask.jpg using cv2.goodFeaturesToTrack.
 #
 # How it works:
-#   1. Threshold the blurred mask back to a clean binary image
-#   2. Find the arrow contour with findContours
-#   3. Compute convexity defects — the deep "armpit" indentations where
-#      the arrowhead widens from the shaft are the unique structural signature
-#      of an arrow shape
-#   4. The tip is the convex-hull point farthest from the deepest notch
+#   1. Detect up to 7 corners with goodFeaturesToTrack (Shi-Tomasi)
+#   2. Sort corners by angle around their centroid to form a polygon ordering
+#   3. Find the corner with the SMALLEST interior angle - the arrowhead tip is
+#      always the most acute (pointy) vertex, regardless of arrow length
+#   4. Direction is the vector from the centroid to the identified tip
 
 import cv2
 import numpy as np
@@ -17,52 +14,62 @@ img = cv2.imread('blurred_mask.jpg', cv2.IMREAD_GRAYSCALE)
 if img is None:
 	raise FileNotFoundError('blurred_mask.jpg not found in the current directory.')
 
-# Re-threshold to clean binary (blur may have created gray pixels)
-_, thresh = cv2.threshold(img, 127, 255, cv2.THRESH_BINARY)
+# Detect corners (Shi-Tomasi)
+# maxCorners=7: an arrow has up to 7 geometric corners
+# qualityLevel=0.05: more selective than 0.01 - avoids spurious noise corners
+# minDistance=30: prevents merging nearby true corners
+corners = cv2.goodFeaturesToTrack(img, maxCorners=7, qualityLevel=0.05, minDistance=30)
 
-# Find contours and take the largest one (the arrow)
-cnts, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-if not cnts:
-	print('No contours detected.')
+if corners is None or len(corners) < 3:
+	print('Not enough corners detected.')
 	exit()
 
-cnt = max(cnts, key=cv2.contourArea)
+corners = np.int0(corners)
+pts = corners.reshape(-1, 2).astype(float)
 
-# Convex hull (as indices, required for convexityDefects)
-hull_idx = cv2.convexHull(cnt, returnPoints=False)
-defects  = cv2.convexityDefects(cnt, hull_idx)
+# Centroid of all detected corners
+cx, cy = pts.mean(axis=0)
 
-if defects is None:
-	print('No convexity defects found — arrow shape may be too simple or mask is noisy.')
-	exit()
+# Sort corners by polar angle around the centroid so they form a polygon order
+polar_angles = np.arctan2(pts[:, 1] - cy, pts[:, 0] - cx)
+pts = pts[np.argsort(polar_angles)]
+n = len(pts)
 
-# The deepest defect is the notch (the armpit between shaft and arrowhead)
-deepest  = max(defects[:, 0], key=lambda d: d[3])
-notch_pt = tuple(cnt[deepest[2]][0])
+# Tip = corner with the smallest interior angle in the sorted polygon
+# The arrowhead creates the sharpest angle; the tail corners are ~90 degrees
+min_angle = float('inf')
+tip_idx = 0
+for i in range(n):
+	v1 = pts[(i-1) % n] - pts[i]
+	v2 = pts[(i+1) % n] - pts[i]
+	denom = np.linalg.norm(v1) * np.linalg.norm(v2)
+	if denom < 1e-8:
+		continue
+	angle = np.arccos(np.clip(np.dot(v1, v2) / denom, -1, 1))
+	if angle < min_angle:
+		min_angle = angle
+		tip_idx = i
 
-# The tip is the hull point farthest from the notch
-hull_pts = cv2.convexHull(cnt)  # shape (M, 1, 2) — actual coordinates
-tip = max(hull_pts,
-          key=lambda p: np.linalg.norm(np.array(p[0]) - np.array(notch_pt)))[0]
+tip = pts[tip_idx].astype(int)
+centroid = np.array([int(cx), int(cy)])
 
-# Direction: vector from contour centroid to tip
-M  = cv2.moments(cnt)
-cx = int(M['m10'] / M['m00'])
-cy = int(M['m01'] / M['m00'])
-vec   = tip.astype(float) - np.array([cx, cy], dtype=float)
-angle = np.degrees(np.arctan2(vec[1], vec[0]))
+# Direction: vector from centroid to tip
+vec   = pts[tip_idx] - np.array([cx, cy])
+angle_deg = np.degrees(np.arctan2(vec[1], vec[0]))
 
-if   -45  <= angle <  45:  direction = "Right"
-elif  45  <= angle < 135:  direction = "Down"
-elif angle >= 135 or angle < -135: direction = "Left"
-else:                      direction = "Up"
+if   -45  <= angle_deg <  45:  direction = "Right"
+elif  45  <= angle_deg < 135:  direction = "Down"
+elif angle_deg >= 135 or angle_deg < -135: direction = "Left"
+else:                          direction = "Up"
 
 # Visualize
 img_color = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
-cv2.circle(img_color, notch_pt,   6, (255,   0,   0), -1)  # blue   = notch
-cv2.circle(img_color, tuple(tip), 8, (  0,   0, 255), -1)  # red    = tip
-cv2.circle(img_color, (cx, cy),   5, (  0, 255, 255), -1)  # yellow = centroid
+for pt in pts.astype(int):
+	cv2.circle(img_color, tuple(pt), 4, (0, 255, 255), -1)    # yellow = all corners
+cv2.circle(img_color, tuple(tip),      8, (0,   0, 255), -1)  # red    = tip
+cv2.circle(img_color, tuple(centroid), 5, (255, 0,   0), -1)  # blue   = centroid
+cv2.arrowedLine(img_color, tuple(centroid), tuple(tip), (0, 255, 0), 2, tipLength=0.3)
 cv2.putText(img_color, f'Direction: {direction}',
             (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2)
 cv2.imwrite('corners_detected.jpg', img_color)
-print(f'Direction: {direction}  |  tip={tuple(tip)}  notch={notch_pt}')
+print(f'Direction: {direction}  |  tip={tuple(tip)}  corners detected={n}')
