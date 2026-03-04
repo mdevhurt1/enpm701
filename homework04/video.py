@@ -56,7 +56,7 @@ def get_arrow_direction(mask):
     return direction, tip, mask_centroid.astype(int), pts.astype(int)
 
 
-def main(duration_seconds: int = 30, fps: int = 30, width: int = 640, height: int = 480):
+def main(duration_seconds: int = 30, fps: int = 10, width: int = 640, height: int = 480):
     """
     Record a video for `duration_seconds`, detect arrow direction each frame
     using green masking + morphological clean-up + goodFeaturesToTrack corner
@@ -145,7 +145,14 @@ def main(duration_seconds: int = 30, fps: int = 30, width: int = 640, height: in
                 (10, height - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2,
             )
 
-            # Frame delta overlay (from homework03/video.py) - computed before write
+            # Pace the loop to the declared fps so the video plays back in real time.
+            # If processing already took longer than one frame period, skip the sleep.
+            frame_delta = time.perf_counter() - frame_start
+            sleep_needed = (1.0 / fps) - frame_delta
+            if sleep_needed > 0:
+                time.sleep(sleep_needed)
+
+            # Record total frame time (processing + sleep) for the delta overlay
             frame_delta = time.perf_counter() - frame_start
             cv2.putText(
                 frame, f"Delta: {frame_delta:.3f}s",
