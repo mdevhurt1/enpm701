@@ -145,14 +145,7 @@ def main(duration_seconds: int = 30, fps: int = 10, width: int = 640, height: in
                 (10, height - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2,
             )
 
-            # Pace the loop to the declared fps so the video plays back in real time.
-            # If processing already took longer than one frame period, skip the sleep.
-            frame_delta = time.perf_counter() - frame_start
-            sleep_needed = (1.0 / fps) - frame_delta
-            if sleep_needed > 0:
-                time.sleep(sleep_needed)
-
-            # Record total frame time (processing + sleep) for the delta overlay
+            # Record total frame time (processing) for the delta overlay
             frame_delta = time.perf_counter() - frame_start
             cv2.putText(
                 frame, f"Delta: {frame_delta:.3f}s",
