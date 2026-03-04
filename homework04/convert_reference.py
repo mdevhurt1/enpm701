@@ -26,6 +26,12 @@ upper_green = (80, 255, 255)
 
 # Set pixels within the green range to white on the black canvas
 mask = cv2.inRange(hsv_image, lower_green, upper_green)
+
+# Morphological clean-up: close fills internal holes, open removes noise speckles
+kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (7, 7))
+mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, kernel)
+mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN,  kernel)
+
 black_canvas[mask > 0] = 255
 
 cv2.imwrite('mask.jpg', black_canvas)
