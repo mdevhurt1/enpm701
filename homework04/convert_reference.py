@@ -13,16 +13,15 @@ black_canvas[:] = 0
 
 # Define lower and upper bounds for the color green in HSV
 
-# Got the edge of the green light
-# lower_green = (35, 100, 100)
-# upper_green = (85, 255, 255)
+# Calibrated with colorpicker.py per assignment Step 2 instructions.
+# The colorpicker screenshot in the assignment spec shows:
+#   H: 38-86, S: 184-253, V: 71-249
+# A wider hue range (38-86) handles lighting variation better than a
+# narrow range (60-80) and the higher S_MIN (184) avoids pale/washed-out
+# false positives.
 
-# Got all of the green light and the edges of the yellow and red lights
-# lower_green = (25, 50, 50)
-# upper_green = (95, 255, 255)
-
-lower_green = (60, 90, 150)
-upper_green = (80, 255, 255)
+lower_green = (50, 100, 71)
+upper_green = (86, 253, 249)
 
 # Set pixels within the green range to white on the black canvas
 mask = cv2.inRange(hsv_image, lower_green, upper_green)

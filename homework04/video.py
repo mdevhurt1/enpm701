@@ -7,45 +7,45 @@ from picamera2 import Picamera2
 
 def get_arrow_direction(mask):
     """
-    Detect arrow direction from a binary mask using contour analysis and
-    convexity defects (identify_corners.py technique).
+    Detect arrow direction from a binary mask using corner detection
+    (goodFeaturesToTrack / Shi-Tomasi), matching the identify_corners.py technique.
 
-    The arrow's unique structural signature is the "armpit" notch where the
-    wide arrowhead meets the narrower shaft.  convexityDefects finds this notch
-    reliably.  The tip is then the convex-hull point farthest from the notch,
-    and the vector from the contour centroid to the tip gives the direction.
+    The mask's pixel centroid (center of mass of all white pixels) is used as the
+    reference point.  The large rectangular shaft pushes this centroid toward the
+    tail side, so the arrowhead tip is always the detected corner farthest from it.
 
-    Returns (direction_str, tip_xy, centroid_xy, notch_xy) or Nones on failure.
+    Returns (direction_str, tip_xy, centroid_xy, all_corners) or Nones on failure.
     """
-    _, thresh = cv2.threshold(mask, 127, 255, cv2.THRESH_BINARY)
-    cnts, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-    if not cnts:
+    # Need white pixels to exist
+    white_pixels = np.column_stack(np.where(mask > 127))  # (row, col)
+    if len(white_pixels) < 100:
         return None, None, None, None
 
-    cnt = max(cnts, key=cv2.contourArea)
-    if cv2.contourArea(cnt) < 500:
+    # Mild blur spreads binary edges into gradients goodFeaturesToTrack can use
+    blurred = cv2.GaussianBlur(mask, (5, 5), 0)
+
+    corners = cv2.goodFeaturesToTrack(
+        blurred,
+        maxCorners=7,
+        qualityLevel=0.01,
+        minDistance=20,
+    )
+    if corners is None:
         return None, None, None, None
 
-    hull_idx = cv2.convexHull(cnt, returnPoints=False)
-    defects  = cv2.convexityDefects(cnt, hull_idx)
-    if defects is None:
-        return None, None, None, None
+    corners = np.int0(corners)
+    pts = corners.reshape(-1, 2).astype(float)
 
-    # Deepest defect = the notch (armpit between shaft and arrowhead)
-    deepest  = max(defects[:, 0], key=lambda d: d[3])
-    notch_pt = cnt[deepest[2]][0]
+    # Pixel centroid - stable reference independent of how many corners were found
+    mask_cx = float(white_pixels[:, 1].mean())  # col = x
+    mask_cy = float(white_pixels[:, 0].mean())  # row = y
+    mask_centroid = np.array([mask_cx, mask_cy])
 
-    # Tip = hull point farthest from the notch
-    hull_pts = cv2.convexHull(cnt)  # shape (M, 1, 2) — actual coordinates
-    tip = max(hull_pts,
-              key=lambda p: np.linalg.norm(np.array(p[0]) - notch_pt.astype(float)))[0]
+    # Tip = corner farthest from the pixel centroid
+    tip_idx = max(range(len(pts)), key=lambda i: np.linalg.norm(pts[i] - mask_centroid))
+    tip = pts[tip_idx].astype(int)
 
-    # Centroid via image moments
-    M  = cv2.moments(cnt)
-    cx = int(M['m10'] / M['m00'])
-    cy = int(M['m01'] / M['m00'])
-
-    vec   = tip.astype(float) - np.array([cx, cy], dtype=float)
+    vec   = pts[tip_idx] - mask_centroid
     angle = np.degrees(np.arctan2(vec[1], vec[0]))
 
     if   -45  <= angle <  45:  direction = "Right"
@@ -53,14 +53,14 @@ def get_arrow_direction(mask):
     elif angle >= 135 or angle < -135: direction = "Left"
     else:                      direction = "Up"
 
-    return direction, tip, np.array([cx, cy]), notch_pt
+    return direction, tip, mask_centroid.astype(int), pts.astype(int)
 
 
 def main(duration_seconds: int = 30, fps: int = 30, width: int = 640, height: int = 480):
     """
     Record a video for `duration_seconds`, detect arrow direction each frame
-    using green masking + morphological clean-up + contour/defect analysis,
-    overlay direction on the frame, and record per-frame timing metrics.
+    using green masking + morphological clean-up + goodFeaturesToTrack corner
+    detection, overlay direction on the frame, and record per-frame timing metrics.
     Output files: output.avi, frame_times.txt
     """
     picam2 = Picamera2()
@@ -74,14 +74,16 @@ def main(duration_seconds: int = 30, fps: int = 30, width: int = 640, height: in
     fourcc = cv2.VideoWriter_fourcc(*"MJPG")
     out = cv2.VideoWriter("output.avi", fourcc, fps, (width, height))
 
-    # Green HSV bounds (from convert_reference.py)
-    lower_green = np.array([70, 90, 150], dtype=np.uint8)
-    upper_green = np.array([80, 255, 255], dtype=np.uint8)
+    # Green HSV bounds (from convert_reference.py / colorpicker.py calibration)
+    lower_green = np.array([50, 100, 71], dtype=np.uint8)
+    upper_green = np.array([86, 253, 249], dtype=np.uint8)
 
-    # Morphological kernel for mask clean-up (from blurr.py technique)
-    morph_kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (7, 7))
+    # Morphological kernel for mask clean-up (from blurr.py technique).
+    # 3x3 here because the arrow is much smaller in 640x480 video than in the
+    # high-res still; a 7x7 kernel would erode the small arrow away entirely.
+    morph_kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
 
-    # Rolling buffer for temporal smoothing — avoids single-frame flickers
+    # Rolling buffer for temporal smoothing - avoids single-frame flickers
     direction_buffer = deque(maxlen=5)
 
     # Performance / metrics (from homework03/video.py)
@@ -112,8 +114,8 @@ def main(duration_seconds: int = 30, fps: int = 30, width: int = 640, height: in
             mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, morph_kernel)
             mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN,  morph_kernel)
 
-            # --- Contour-based arrow direction (identify_corners.py technique) ---
-            direction, tip, centroid, notch_pt = get_arrow_direction(mask)
+            # --- Corner-based arrow direction (identify_corners.py technique) ---
+            direction, tip, centroid, all_corners = get_arrow_direction(mask)
 
             # --- Temporal smoothing: report the mode over the last 5 frames ---
             direction_buffer.append(direction or "Unknown")
@@ -121,9 +123,10 @@ def main(duration_seconds: int = 30, fps: int = 30, width: int = 640, height: in
 
             # --- Annotate frame ---
             if direction is not None:
-                cv2.circle(frame, tuple(notch_pt), 6, (255,   0,   0), -1)  # blue  = notch
-                cv2.circle(frame, tuple(tip),       8, (  0,   0, 255), -1)  # red   = tip
-                cv2.circle(frame, tuple(centroid),  5, (  0, 255, 255), -1)  # yellow = centroid
+                for pt in all_corners:
+                    cv2.circle(frame, tuple(pt), 4, (0, 255, 255), -1)     # yellow = all corners
+                cv2.circle(frame, tuple(tip),      8, (  0,   0, 255), -1)  # red    = tip
+                cv2.circle(frame, tuple(centroid), 5, (255,   0,   0), -1)  # blue   = centroid
                 cv2.arrowedLine(frame, tuple(centroid), tuple(tip), (0, 255, 0), 2, tipLength=0.3)
                 cv2.putText(
                     frame, f"Direction: {stable_direction}",
@@ -142,7 +145,7 @@ def main(duration_seconds: int = 30, fps: int = 30, width: int = 640, height: in
                 (10, height - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2,
             )
 
-            # Frame delta overlay (from homework03/video.py) — computed before write
+            # Frame delta overlay (from homework03/video.py) - computed before write
             frame_delta = time.perf_counter() - frame_start
             cv2.putText(
                 frame, f"Delta: {frame_delta:.3f}s",
