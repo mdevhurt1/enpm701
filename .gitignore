@@ -1,3 +1,5 @@
 build
 *.FCBak
+*-backups
+*-cache
 .vscode
