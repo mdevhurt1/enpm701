@@ -25,7 +25,6 @@ GRIPPER_CLOSED = 3.5
 # Timelapse config
 WIDTH, HEIGHT      = 640, 480
 FPS                = 30
-DWELL_FRAMES       = 45    # frames per capture in output video (1.5 s each @ 30 fps)
 CAPTURE_INTERVAL   = 0.25   # seconds between captures
 TIMELAPSE_DURATION = 30    # total capture window in seconds
 
@@ -119,10 +118,11 @@ def pivotleft(tf):
     gameover()
 
 def write_timelapse(frames, output_path):
+    dwell = max(1, round(TIMELAPSE_DURATION * FPS / len(frames)))
     fourcc = cv2.VideoWriter_fourcc(*"mp4v")
     out = cv2.VideoWriter(output_path, fourcc, FPS, (WIDTH, HEIGHT))
     for frame in frames:
-        for _ in range(DWELL_FRAMES):
+        for _ in range(dwell):
             out.write(frame)
     out.release()
     print(f"Time-lapse saved: {output_path}")
@@ -135,6 +135,7 @@ def timelapse_worker(picam2, frames, stop_event):
             break
         img_rgb = picam2.capture_array()
         img_bgr = cv2.cvtColor(img_rgb, cv2.COLOR_RGB2BGR)
+        img_bgr = cv2.rotate(img_bgr, cv2.ROTATE_180)
         frames.append(img_bgr)
         # Drift-corrected sleep until next 1-second mark
         next_capture = start + len(frames) * CAPTURE_INTERVAL
