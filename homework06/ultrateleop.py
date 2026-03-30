@@ -26,7 +26,7 @@ GRIPPER_CLOSED = 3.5
 WIDTH, HEIGHT      = 640, 480
 FPS                = 30
 DWELL_FRAMES       = 45    # frames per capture in output video (1.5 s each @ 30 fps)
-CAPTURE_INTERVAL   = 1.0   # seconds between captures
+CAPTURE_INTERVAL   = 0.25   # seconds between captures
 TIMELAPSE_DURATION = 30    # total capture window in seconds
 
 pwm = None
